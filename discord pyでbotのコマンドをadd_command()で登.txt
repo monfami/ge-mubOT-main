@@ -1,0 +1,40 @@
+discord pyでbotのコマンドをadd_command()で登録する Python discord discord.py 投稿日 2022年12月05日 前提 この記事ではdiscord.pyを使ったdiscord botにおいて，command treeのadd_command()を利用したコマンド登録を説明します．これに合わせて，コマンドのグループ化について少し触れます．
+
+また，説明には以下のコードを使用し，これを発展させていきます．
+
+サンプルコード CommandTree.add_command() コマンドを追加する方法はサンプルコードにあるような@client.tree.command()の下にコマンドの下に関数を記述するだけでなく，CommandTreeのインスタンスからadd_command()を呼び出し，引数にコマンドを与えるという方法があります．
+
+リファレンスを見てみると，
+
+command (Union[Command, Group]) -- 追加するアプリケーションコマンドまたはグループ。
+
+とあります．Union型は指定された型のどれかであればいいというものなので，CommandかGroupのどちらかを指定すれば大丈夫です．
+
+Command Commandについて見ていきましょう．リファレンスによると，
+
+これは通常手動で作成されず、代わりに以下のデコレータを使用して作成されます。
+
+command() Group.command CommandTree.command とあります．このどれもが結局discord.app_commands.commandによるデコレータです．デコレータなのでわかりずらいですが，デコレータの下に記述した関数がクラスになります．GitHubにある基のコードを見るほうがわかりやすいかもしれません．デコレータ部分でCommandクラスが返されています．つまりapp_command(function)とすればコマンドが登録されます．また，特に指定しなければ関数名が実行する際のコマンド名になります．
+
+この@discord.app_commands.command(Command)を利用したサンプルコードを下記に置いておきます．
+
+サンプルコード ただ，注意するべきことが一つあります．それは，コマンドの登録の反映がすぐには行われないということです．当たり前といえば当たり前ですが，私は散々これで悩んだので共有しておきます．エラーなく実行できてるのに期待した通りにならなくて，でも時折できてて，とても悩みました...... そのコマンドを実行しようとすれば更新がかかると思います．でも更新されないときがあるのでそのときは空でも眺めましょう．
+
+Group 続いて，Groupを見ていきましょう． そもそも，Groupによるコマンドとはコマンドの階層構造のようなものです．
+
+MyGroup ├── subcommand └── SubGroup └── subsubcommand 上記のようなコマンドグループがあったとして，subcommadを実行するには/MyGroup subcommandのように記述します．subsubcommandであれば/MyGroup SubGroup subsubcommandです． このようにコマンドをカテゴリ別に分類することができます．
+
+リファレンスによると，継承して使うクラスなので，継承したクラスを作りましょう．
+
+コードは以下のような感じです．本当は上に示したような構成のグループにしたかったのですが，更新が思っているより遅くて億劫なので事前に実験したものを載せます．
+
+サンプルコード discordbot.py import os from discord import Intents, Client, Interaction, app_commands from discord.app_commands import CommandTree from dotenv import load_dotenv load_dotenv()
+
+@app_commands.command() async def hello(interaction: Interaction): await interaction.response.send_message(f'Hello, {interaction.user.mention}')
+
+class MyGroup(app_commands.Group):
+class MyClient(Client): def init(self, intents: Intents) -> None: super().init(intents=intents) self.tree = CommandTree(self) self.tree.add_command(hello) self.tree.add_command(MyGroup("group"))
+
+intents = Intents.default() client = MyClient(intents=intents)
+
+client.run(os.getenv("TOKEN")) 現在のサンプルコードでは一つのファイルにまとめていますが，別ファイルに作りそれをimportすることでコードの見通しが良くなると思います
