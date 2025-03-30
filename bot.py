@@ -32,6 +32,11 @@ class GameRecruitment:
             user: discord.PermissionOverwrite(read_messages=True, send_messages=True, connect=True, speak=True)
         }
         
+        # BOT!ロールがある場合は権限を追加
+        bot_role = discord.utils.get(guild.roles, name="BOT!")
+        if bot_role:
+            overwrites[bot_role] = discord.PermissionOverwrite(read_messages=True, send_messages=True, connect=True, speak=True)
+        
         # テキストチャンネルとボイスチャンネルの作成
         text_channel = await category.create_text_channel(f"{game_type}-チャット", overwrites=overwrites)
         voice_channel = await category.create_voice_channel(f"{game_type}-ボイスチャット", overwrites=overwrites)
@@ -62,12 +67,14 @@ class GameRecruitment:
         host_view = GameManagementView(recruitment_id, max_players)
         await text_channel.send(embed=game_info_embed, view=host_view)
         
-        # ゲーム情報メッセージを送信
+        # 参加者用のビュー（退出ボタン付き）
+        member_view = GameMemberView(recruitment_id)
         await text_channel.send(
             f"**ようこそ {game_type} の募集チャンネルへ！**\n\n"
             f"このチャンネルはゲームの参加者専用です。\n"
             f"ボイスチャットはこちら: {voice_channel.mention}\n\n"
-            f"ゲームが終了したら、ホストまたは管理者が「ゲームを終了する」ボタンを押すことでチャンネルを削除できます。"
+            f"ゲームが終了したら、ホストまたは管理者が「ゲームを終了する」ボタンを押すことでチャンネルを削除できます。", 
+            view=member_view
         )
         
         return text_channel, voice_channel, category, recruitment_id
@@ -115,6 +122,77 @@ class GameRecruitment:
             "current_players": len(recruitment["current_players"]),
             "max_players": recruitment["max_players"]
         }
+
+    @classmethod
+    async def remove_player(cls, interaction, recruitment_id):
+        """プレイヤーを募集から削除する"""
+        recruitment = cls.recruitments.get(recruitment_id)
+        if not recruitment:
+            return False, "募集が見つかりません"
+        
+        user_id = interaction.user.id
+        
+        # ホストは退出できない
+        if user_id == recruitment["host"]:
+            return False, "あなたはホストなので退出できません。ゲームを終了するには「ゲームを終了する」ボタンを使用してください。"
+        
+        # 参加者リストに含まれているか確認
+        if user_id not in recruitment["current_players"]:
+            return False, "あなたはこの募集に参加していません"
+        
+        # プレイヤーを削除
+        recruitment["current_players"].remove(user_id)
+        
+        # チャンネルのアクセス権を削除
+        guild = interaction.guild
+        user = interaction.user
+        text_channel = guild.get_channel(recruitment["text_channel"])
+        voice_channel = guild.get_channel(recruitment["voice_channel"])
+        
+        if text_channel:
+            await text_channel.set_permissions(user, overwrite=None)
+        if voice_channel:
+            await voice_channel.set_permissions(user, overwrite=None)
+            
+        # 退出したことを通知
+        try:
+            await text_channel.send(f"👋 {user.mention} が退出しました。(現在の参加人数: {len(recruitment['current_players'])}/{recruitment['max_players']})")
+        except:
+            pass
+            
+        # プライベートチャンネルの埋め込みメッセージを更新
+        try:
+            async for message in text_channel.history(limit=20):
+                if message.author == interaction.client.user and message.embeds and len(message.embeds) > 0:
+                    embed = message.embeds[0]
+                    if embed.title == f"{recruitment['game_type']}の募集":
+                        # 埋め込みメッセージを更新
+                        new_embed = discord.Embed(
+                            title=embed.title,
+                            description=f"ホスト: {interaction.guild.get_member(recruitment['host']).mention}\n"
+                                      f"参加人数: {len(recruitment['current_players'])}/{recruitment['max_players']}",
+                            color=embed.color
+                        )
+                        if embed.footer.text:
+                            new_embed.set_footer(text=embed.footer.text)
+                        await message.edit(embed=new_embed)
+                        break
+        except Exception as e:
+            print(f"プライベートチャンネルの更新でエラー発生: {e}")
+            
+        # 公開メッセージも更新
+        try:
+            if recruitment["public_message_id"] and recruitment["public_channel_id"]:
+                channel = guild.get_channel(recruitment["public_channel_id"])
+                message = await channel.fetch_message(recruitment["public_message_id"])
+                
+                embed = message.embeds[0]
+                embed.description = embed.description.split('\n\n')[0] + f"\n\n参加人数: {len(recruitment['current_players'])}/{recruitment['max_players']}"
+                await message.edit(embed=embed)
+        except:
+            pass
+            
+        return True, f"{recruitment['game_type']}の募集から退出しました。"
 
     @classmethod
     async def close_recruitment(cls, interaction, recruitment_id):
@@ -166,8 +244,27 @@ class GameRecruitment:
         if not (is_host or has_admin_role):
             return False, "チャンネルを削除する権限がありません。募集作成者または@BOT操作ロールを持つメンバーのみが可能です。"
 
-        # チャンネル削除処理
+        # 公開メッセージを「募集は終了しました」に更新
         guild = interaction.guild
+        if recruitment["public_message_id"] and recruitment["public_channel_id"]:
+            try:
+                channel = guild.get_channel(recruitment["public_channel_id"])
+                message = await channel.fetch_message(recruitment["public_message_id"])
+                
+                # ボタンを無効化して更新
+                embed = message.embeds[0]
+                embed.color = discord.Color.light_grey()
+                embed.set_footer(text="この募集は終了しました (チャンネル削除済み)")
+                
+                view = ui.View()
+                button = ui.Button(label="募集は終了しました", style=discord.ButtonStyle.secondary, disabled=True)
+                view.add_item(button)
+                
+                await message.edit(embed=embed, view=view)
+            except:
+                pass
+
+        # チャンネル削除処理
         try:
             # カテゴリ、テキスト、ボイスチャンネルの取得
             category = guild.get_channel(recruitment["category"])
@@ -250,6 +347,21 @@ class GameManagementView(ui.View):
             ephemeral=True
         )
 
+# 一般参加者用ビュー（退出ボタン付き）
+class GameMemberView(ui.View):
+    def __init__(self, recruitment_id):
+        super().__init__(timeout=None)
+        self.recruitment_id = recruitment_id
+    
+    @ui.button(label="募集から抜ける", style=discord.ButtonStyle.secondary, emoji="👋")
+    async def leave_button(self, interaction: discord.Interaction, button: ui.Button):
+        success, result = await GameRecruitment.remove_player(interaction, self.recruitment_id)
+        
+        if success:
+            await interaction.response.send_message(result, ephemeral=True)
+        else:
+            await interaction.response.send_message(result, ephemeral=True)
+
 # 削除確認ビュー
 class ConfirmDeleteView(ui.View):
     def __init__(self, recruitment_id):
@@ -296,14 +408,38 @@ class PublicJoinView(ui.View):
                     
                     embed = interaction.message.embeds[0]
                     embed.color = discord.Color.light_grey()
+                    # 正しい参加人数を表示
+                    embed.description = embed.description.split('\n\n')[0] + f"\n\n参加人数: {result['current_players']}/{result['max_players']}"
                     embed.set_footer(text="この募集は終了しました")
                     await interaction.message.edit(embed=embed, view=self)
                 
                 else:
                     # 埋め込みメッセージの更新
                     embed = interaction.message.embeds[0]
+                    # 正しい参加人数を表示
                     embed.description = embed.description.split('\n\n')[0] + f"\n\n参加人数: {result['current_players']}/{result['max_players']}"
                     await interaction.message.edit(embed=embed)
+                
+                # プライベートチャンネルの埋め込みメッセージも更新
+                try:
+                    text_channel = interaction.guild.get_channel(recruitment["text_channel"])
+                    async for message in text_channel.history(limit=10):
+                        if message.author == interaction.client.user and message.embeds and len(message.embeds) > 0:
+                            embed = message.embeds[0]
+                            if embed.title == f"{recruitment['game_type']}の募集":
+                                # プライベートチャンネルの埋め込みメッセージを更新
+                                new_embed = discord.Embed(
+                                    title=embed.title,
+                                    description=f"ホスト: {interaction.guild.get_member(recruitment['host']).mention}\n"
+                                              f"参加人数: {result['current_players']}/{result['max_players']}",
+                                    color=embed.color
+                                )
+                                if embed.footer.text:
+                                    new_embed.set_footer(text=embed.footer.text)
+                                await message.edit(embed=new_embed)
+                                break
+                except Exception as e:
+                    print(f"プライベートチャンネルの更新でエラー発生: {e}")
                 
                 # テキストチャンネルとボイスチャンネルのリンクを送信
                 text_channel = interaction.guild.get_channel(recruitment["text_channel"])
@@ -378,6 +514,67 @@ class GameCommands(app_commands.Group):
             f"ボイスチャンネル: {voice_channel.mention}", 
             ephemeral=True
         )
+
+# Hypixel Worldリンク用コマンドを追加
+@bot.tree.command(name="hypixel_world", description="Hypixel Worldのリンクを表示します")
+async def hypixel_world(interaction: discord.Interaction):
+    """Hypixel Worldのリンクを表示します"""
+    hypixel_url = "https://drive.google.com/drive/folders/18w1Y27UJJc_MMS8Yy8tgAc6Sv71A0s6M"
+    
+    embed = discord.Embed(
+        title="Hypixel World リンク",
+        description=f"Hypixel Worldは[こちら]({hypixel_url})からアクセスできます。",
+        color=discord.Color.gold()
+    )
+    embed.add_field(name="URL", value=hypixel_url)
+    embed.set_footer(text="Hypixel World - Minecraft Server Data")
+    
+    await interaction.response.send_message(embed=embed)
+
+# セットアップコマンド - BOTのスラッシュコマンドとして提供
+@bot.tree.command(name="setup", description="BOTの初期設定を行います（管理者のみ）")
+@app_commands.default_permissions(administrator=True)
+async def setup_command(interaction: discord.Interaction):
+    """サーバーに必要なロールを作成します"""
+    guild = interaction.guild
+    
+    # BOT操作ロールの作成
+    admin_role_name = "BOT操作"
+    existing_admin_role = discord.utils.get(guild.roles, name=admin_role_name)
+    
+    # BOT!ロールの作成
+    bot_role_name = "BOT!"
+    existing_bot_role = discord.utils.get(guild.roles, name=bot_role_name)
+    
+    response = []
+    
+    if existing_admin_role:
+        response.append(f"`{admin_role_name}` ロールはすでに存在します。")
+    else:
+        try:
+            # 目立つ色のロールを作成
+            await guild.create_role(name=admin_role_name, colour=discord.Colour.blue(), 
+                                   mentionable=True, 
+                                   reason="ゲーム募集BOTのセットアップ")
+            response.append(f"`{admin_role_name}` ロールを作成しました。このロールを持つユーザーはゲーム募集の管理ができます。")
+        except:
+            response.append(f"`{admin_role_name}` ロールの作成に失敗しました。BOTに必要な権限があるか確認してください。")
+    
+    if existing_bot_role:
+        response.append(f"`{bot_role_name}` ロールはすでに存在します。")
+    else:
+        try:
+            # BOT!ロールを作成
+            await guild.create_role(name=bot_role_name, colour=discord.Colour.purple(), 
+                                   mentionable=True, 
+                                   reason="BOTの自由参加用ロール")
+            response.append(f"`{bot_role_name}` ロールを作成しました。このロールを持つメンバーはすべてのゲームチャンネルに参加できます。")
+        except:
+            response.append(f"`{bot_role_name}` ロールの作成に失敗しました。BOTに必要な権限があるか確認してください。")
+    
+    response.append("セットアップが完了しました！`/game recruit` コマンドでゲーム募集を始められます。")
+    
+    await interaction.response.send_message("\n".join(response))
 
 # スラッシュコマンドの同期
 @bot.event
