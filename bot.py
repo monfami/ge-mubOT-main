@@ -18,6 +18,9 @@ intents.message_content = True
 # BOTの設定
 bot = commands.Bot(command_prefix=commands.when_mentioned_or("!"), intents=intents)
 
+# あいうえお機能の状態を管理する辞書（サーバーIDをキーとして使用）
+aiueo_enabled = {}
+
 # Hypixel Worldリンク用コマンドを追加
 @bot.tree.command(name="hypixel_world", description="Hypixel Worldのリンクを表示します")
 async def hypixel_world(interaction: discord.Interaction):
@@ -33,6 +36,40 @@ async def hypixel_world(interaction: discord.Interaction):
     embed.set_footer(text="Hypixel World - Minecraft Server Data")
     
     await interaction.response.send_message(embed=embed)
+
+# aiueoコマンドを更新 - 設定パラメータを必須に変更
+@bot.tree.command(name="aiueo", description="あいうえお応答機能を設定します")
+@app_commands.describe(設定="「on」または「off」を指定してください")
+async def aiueo(interaction: discord.Interaction, 設定: str):
+    """あいうえお応答機能を設定するコマンド"""
+    guild_id = str(interaction.guild_id)
+    
+    # パラメータの処理
+    if 設定.lower() == "on":
+        aiueo_enabled[guild_id] = True
+        await interaction.response.send_message("あいうえお応答機能を **オン** にしました。\nチャットで「あいうえお」と発言すると「かきくけこ」と応答します。")
+    elif 設定.lower() == "off":
+        aiueo_enabled[guild_id] = False
+        await interaction.response.send_message("あいうえお応答機能を **オフ** にしました。")
+    else:
+        await interaction.response.send_message("設定は `on` または `off` を指定してください。", ephemeral=True)
+
+# メッセージイベントハンドラを追加
+@bot.event
+async def on_message(message):
+    # BOT自身のメッセージは無視
+    if message.author == bot.user:
+        return
+    
+    # aiueo機能が有効な場合
+    guild_id = str(message.guild.id) if message.guild else None
+    if guild_id and aiueo_enabled.get(guild_id, False):
+        # メッセージが「あいうえお」を含むか確認
+        if "あいうえお" in message.content:
+            await message.channel.send("かきくけこ")
+    
+    # コマンド処理を続行
+    await bot.process_commands(message)
 
 # セットアップコマンド - BOTのスラッシュコマンドとして提供
 @bot.tree.command(name="setup", description="BOTの初期設定を行います（管理者のみ）")
