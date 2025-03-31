@@ -10,13 +10,16 @@ import sys
 from commands.game_commands import GameCommands
 from commands.aiueo_commands import AiueoCommands, AiueoManager, handle_message
 from game_recruitment import GameRecruitment
+from youkoso_command import setup_youkoso_commands  # ようこそコマンドをインポート
 
 # .envファイルを読み込む
 load_dotenv()
 
-# Intentsを修正してmessage_contentを有効化
+# Intentsを修正して必要な権限をすべて有効化
 intents = discord.Intents.default()
 intents.message_content = True
+intents.members = True  # メンバーイベントを監視するために必要
+intents.guilds = True   # サーバー関連イベントを監視するために必要
 
 # BOTの設定
 bot = commands.Bot(command_prefix=commands.when_mentioned_or("!"), intents=intents)
@@ -152,8 +155,13 @@ async def on_ready():
     bot.tree.add_command(game_commands)
     bot.tree.add_command(aiueo_commands)
     
+    # ようこそコマンドをセットアップ
+    setup_youkoso_commands(bot)
+    
     await bot.tree.sync()  # スラッシュコマンドを同期
     print(f"BOTがログインしました: {bot.user}")
+    print(f"参加サーバー数: {len(bot.guilds)}")
+    print(f"インテント設定: members={intents.members}, guilds={intents.guilds}, message_content={intents.message_content}")
     
     # 起動通知メッセージを送信
     try:
@@ -162,6 +170,19 @@ async def on_ready():
             await channel.send("**BOTが起動しました。**")
     except Exception as e:
         print(f"起動通知の送信中にエラーが発生しました: {e}")
+
+# グローバルに新規参加者イベントを設定（冗長化のため）
+@bot.event
+async def on_member_join(member):
+    print(f"\n==== BOTコアレベルでメンバー参加検知 ====")
+    print(f"参加メンバー: {member.name}#{member.discriminator} (ID: {member.id})")
+    print(f"サーバー: {member.guild.name}")
+    print(f"参加時刻: {member.joined_at}")
+    print(f"======================================\n")
+    
+    # youkoso_commandモジュールの処理を呼び出す
+    from youkoso_command import handle_member_join_global
+    await handle_member_join_global(member)
 
 # トークンを.envから取得してBOTを起動
 bot.run(os.getenv("DISCORD_BOT_TOKEN"))
