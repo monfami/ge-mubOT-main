@@ -11,6 +11,7 @@ from commands.game_commands import GameCommands
 from commands.aiueo_commands import AiueoCommands, AiueoManager, handle_message
 from game_recruitment import GameRecruitment
 from youkoso_command import setup_youkoso_commands  # ようこそコマンドをインポート
+from yakudati_command import setup_yakudati_commands  # 役立ちメンバーコマンドをインポート
 
 # .envファイルを読み込む
 load_dotenv()
@@ -157,6 +158,9 @@ async def on_ready():
     
     # ようこそコマンドをセットアップ
     setup_youkoso_commands(bot)
+    
+    # 役立ちメンバーコマンドをセットアップ
+    setup_yakudati_commands(bot)
     
     await bot.tree.sync()  # スラッシュコマンドを同期
     print(f"BOTがログインしました: {bot.user}")
