@@ -9,6 +9,7 @@ import sys
 # インポート
 from commands.game_commands import GameCommands
 from commands.aiueo_commands import AiueoCommands, AiueoManager, handle_message
+from commands.satuei import SatueiCommands
 from game_recruitment import GameRecruitment
 from youkoso_command import setup_youkoso_commands  # ようこそコマンドをインポート
 from yakudati_command import setup_yakudati_commands  # 役立ちメンバーコマンドをインポート
@@ -179,9 +180,11 @@ async def on_ready():
     # コマンドグループを追加
     game_commands = GameCommands()
     aiueo_commands = AiueoCommands()
+    satuei_commands = SatueiCommands()
     
     bot.tree.add_command(game_commands)
     bot.tree.add_command(aiueo_commands)
+    bot.tree.add_command(satuei_commands)
     
     # ようこそコマンドをセットアップ
     setup_youkoso_commands(bot)
