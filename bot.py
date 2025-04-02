@@ -12,6 +12,7 @@ from commands.aiueo_commands import AiueoCommands, AiueoManager, handle_message
 from game_recruitment import GameRecruitment
 from youkoso_command import setup_youkoso_commands  # ようこそコマンドをインポート
 from yakudati_command import setup_yakudati_commands  # 役立ちメンバーコマンドをインポート
+from gas_integration import AuthSystem, AuthView  # 認証システムをインポート
 
 # .envファイルを読み込む
 load_dotenv()
@@ -145,6 +146,32 @@ async def setup_command(interaction: discord.Interaction):
     response.append("セットアップが完了しました！`/game recruit` コマンドでゲーム募集を始められます。")
     
     await interaction.response.send_message("\n".join(response))
+
+# 認証システムのインスタンスを作成
+auth_system = AuthSystem()
+
+# 認証コマンドを追加
+@bot.tree.command(name="ninnsyou", description="サーバー認証を行うためのボタンを設置します")
+@app_commands.describe(role="認証後に付与するロール")
+@app_commands.default_permissions(administrator=True)
+async def setup_auth(interaction: discord.Interaction, role: discord.Role):
+    """認証ボタンを設置するコマンド (管理者専用)"""
+    # 管理者権限チェック
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("このコマンドは管理者のみ使用できます。", ephemeral=True)
+        return
+    
+    # 認証メッセージを作成
+    embed = discord.Embed(
+        title="サーバー認証",
+        description=f"下のボタンを押して認証を完了してください。\n認証後は {role.mention} ロールが付与されます。",
+        color=discord.Color.blue()
+    )
+    
+    # 認証ボタンビューを作成
+    view = AuthView(auth_system, role.id)
+    
+    await interaction.response.send_message(embed=embed, view=view)
 
 # スラッシュコマンドの同期
 @bot.event
