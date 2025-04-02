@@ -137,7 +137,7 @@ async def send_welcome_message(member, settings):
                 # Embedオブジェクトを作成
                 embed = discord.Embed(
                     title="🎉 新メンバー参加",
-                    description=f"{member.mention}さん、動画班鯖へようこそ！ そして、[ちゃびーチャンネル]({youtube_link})登録してるかな?(圧)",
+                    description=f"{member.mention}さん、動画班鯖へようこそ！ そして、[ちゃびーチャンネル]({youtube_link})登録してるかな?(圧)また、無法地帯サーバー(muhoutitaitekina.feathermc.gg)1.21.4に入ろう‼",
                     color=discord.Color.green()
                 )
                 
