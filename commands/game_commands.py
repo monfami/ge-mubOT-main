@@ -1,7 +1,7 @@
 import discord
 from discord import app_commands
 # 相対インポートを絶対インポートに変更
-from game_recruitment import GameRecruitment
+from commands.game_recruitment import GameRecruitment
 from views.public_view import PublicJoinView
 from views.management_view import GameManagementView
 from views.member_view import GameMemberView

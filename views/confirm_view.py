@@ -1,6 +1,6 @@
 import discord
 from discord import ui
-from game_recruitment import GameRecruitment
+from commands.game_recruitment import GameRecruitment
 
 # 削除確認ビュー
 class ConfirmDeleteView(ui.View):

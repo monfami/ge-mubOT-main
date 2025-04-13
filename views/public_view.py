@@ -1,6 +1,6 @@
 import discord
 from discord import ui
-from game_recruitment import GameRecruitment
+from commands.game_recruitment import GameRecruitment
 
 # 公開募集用のボタンビュー
 class PublicJoinView(ui.View):

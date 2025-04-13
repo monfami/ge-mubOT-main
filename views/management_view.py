@@ -1,6 +1,6 @@
 import discord
 from discord import ui
-from game_recruitment import GameRecruitment
+from commands.game_recruitment import GameRecruitment
 
 # ゲーム管理用ビュー (ホスト・管理者用)
 class GameManagementView(ui.View):

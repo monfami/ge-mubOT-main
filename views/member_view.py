@@ -1,6 +1,6 @@
 import discord
 from discord import ui
-from game_recruitment import GameRecruitment
+from commands.game_recruitment import GameRecruitment
 
 # 一般参加者用ビュー（退出ボタン付き）
 class GameMemberView(ui.View):

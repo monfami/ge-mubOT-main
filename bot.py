@@ -12,7 +12,9 @@ from commands.aiueo_commands import AiueoCommands, AiueoManager, handle_message
 from commands.satuei import SatueiCommands
 from commands.youkoso_commands import setup_youkoso_commands  # ようこそコマンドをインポート
 from commands.yakudati_commands import setup_yakudati_commands  # 役立ちメンバーコマンドをインポート
-from commands.gas_integration import AuthSystem, AuthView  # 認証システムをインポート
+from commands.admin_commands import setup_admin_commands  # 管理者コマンドをインポート
+from commands.hypixel_commands import setup_hypixel_commands  # Hypixelコマンドをインポート
+from commands.auth_commands import setup_auth_commands  # 認証コマンドをインポート
 
 # .envファイルを読み込む
 load_dotenv()
@@ -57,44 +59,6 @@ def signal_handler(sig, frame):
 signal.signal(signal.SIGINT, signal_handler)  # Ctrl+C
 signal.signal(signal.SIGTERM, signal_handler)  # 終了シグナル
 
-# BOT停止コマンドを追加
-@bot.tree.command(name="stop", description="BOTを停止します (管理者専用)")
-@app_commands.default_permissions(administrator=True)
-async def stop_bot(interaction: discord.Interaction):
-    """BOTを停止するコマンド (管理者専用)"""
-    # 管理者権限チェック
-    if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("このコマンドは管理者のみ使用できます。", ephemeral=True)
-        return
-    
-    await interaction.response.send_message("BOTをシャットダウンします...", ephemeral=True)
-    
-    # シャットダウン通知と終了処理
-    try:
-        channel = bot.get_channel(NOTIFICATION_CHANNEL_ID)
-        if channel:
-            await channel.send(f"**BOTがシャットダウンします。** (実行者: {interaction.user.mention})")
-    except Exception as e:
-        print(f"シャットダウン通知の送信中にエラーが発生しました: {e}")
-    finally:
-        # BOTを終了
-        await bot.close()
-
-# Hypixel Worldリンク用コマンドを追加
-@bot.tree.command(name="hypixel_world", description="Hypixel Worldのリンクを表示します")
-async def hypixel_world(interaction: discord.Interaction):
-    hypixel_url = os.getenv("HYPIXEL_WORLD_URL", "https://drive.google.com/drive/folders/18w1Y27UJJc_MMS8Yy8tgAc6Sv71A0s6M")
-    
-    embed = discord.Embed(
-        title="Hypixel World リンク",
-        description=f"Hypixel Worldは[こちら]({hypixel_url})からアクセスできます。",
-        color=discord.Color.gold()
-    )
-    embed.add_field(name="URL", value=hypixel_url)
-    embed.set_footer(text="Hypixel World - Minecraft Server Data")
-    
-    await interaction.response.send_message(embed=embed)
-
 # メッセージイベントハンドラを追加
 @bot.event
 async def on_message(message):
@@ -104,75 +68,7 @@ async def on_message(message):
     # コマンド処理を続行
     await bot.process_commands(message)
 
-# セットアップコマンド - BOTのスラッシュコマンドとして提供
-@bot.tree.command(name="setup", description="BOTの初期設定を行います（管理者のみ）")
-@app_commands.default_permissions(administrator=True)
-async def setup_command(interaction: discord.Interaction):
-    guild = interaction.guild
-    
-    # BOT操作ロールの作成
-    admin_role_name = os.getenv("ADMIN_ROLE_NAME", "BOT操作")
-    existing_admin_role = discord.utils.get(guild.roles, name=admin_role_name)
-    
-    # BOT!ロールの作成
-    bot_role_name = os.getenv("BOT_ROLE_NAME", "BOT!")
-    existing_bot_role = discord.utils.get(guild.roles, name=bot_role_name)
-    
-    response = []
-    
-    if existing_admin_role:
-        response.append(f"`{admin_role_name}` ロールはすでに存在します。")
-    else:
-        try:
-            # 目立つ色のロールを作成
-            await guild.create_role(name=admin_role_name, colour=discord.Colour.blue(), 
-                                   mentionable=True, 
-                                   reason="ゲーム募集BOTのセットアップ")
-            response.append(f"`{admin_role_name}` ロールを作成しました。このロールを持つユーザーはゲーム募集の管理ができます。")
-        except:
-            response.append(f"`{admin_role_name}` ロールの作成に失敗しました。BOTに必要な権限があるか確認してください。")
-    
-    if existing_bot_role:
-        response.append(f"`{bot_role_name}` ロールはすでに存在します。")
-    else:
-        try:
-            # BOT!ロールを作成
-            await guild.create_role(name=bot_role_name, colour=discord.Colour.purple(), 
-                                   mentionable=True, 
-                                   reason="BOTの自由参加用ロール")
-            response.append(f"`{bot_role_name}` ロールを作成しました。このロールを持つメンバーはすべてのゲームチャンネルに参加できます。")
-        except:
-            response.append(f"`{bot_role_name}` ロールの作成に失敗しました。BOTに必要な権限があるか確認してください。")
-    
-    response.append("セットアップが完了しました！`/game recruit` コマンドでゲーム募集を始められます。")
-    
-    await interaction.response.send_message("\n".join(response))
-
-# 認証システムのインスタンスを作成
-auth_system = AuthSystem()
-
-# 認証コマンドを追加
-@bot.tree.command(name="ninnsyou", description="サーバー認証を行うためのボタンを設置します")
-@app_commands.describe(role="認証後に付与するロール")
-@app_commands.default_permissions(administrator=True)
-async def setup_auth(interaction: discord.Interaction, role: discord.Role):
-    """認証ボタンを設置するコマンド (管理者専用)"""
-    # 管理者権限チェック
-    if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("このコマンドは管理者のみ使用できます。", ephemeral=True)
-        return
-    
-    # 認証メッセージを作成
-    embed = discord.Embed(
-        title="サーバー認証",
-        description=f"下のボタンを押して認証を完了してください。\n認証後は {role.mention} ロールが付与されます。",
-        color=discord.Color.blue()
-    )
-    
-    # 認証ボタンビューを作成
-    view = AuthView(auth_system, role.id)
-    
-    await interaction.response.send_message(embed=embed, view=view)
+# メッセージイベントハンドラを追加
 
 # スラッシュコマンドの同期
 @bot.event
@@ -191,6 +87,15 @@ async def on_ready():
     
     # 役立ちメンバーコマンドをセットアップ
     setup_yakudati_commands(bot)
+    
+    # 管理者コマンドをセットアップ
+    setup_admin_commands(bot, NOTIFICATION_CHANNEL_ID)
+    
+    # Hypixelコマンドをセットアップ
+    setup_hypixel_commands(bot)
+    
+    # 認証コマンドをセットアップ
+    auth_system = setup_auth_commands(bot)
     
     await bot.tree.sync()  # スラッシュコマンドを同期
     print(f"BOTがログインしました: {bot.user}")
