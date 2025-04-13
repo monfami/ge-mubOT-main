@@ -25,10 +25,11 @@ intents.members = True  # メンバーイベントを監視するために必要
 intents.guilds = True   # サーバー関連イベントを監視するために必要
 
 # BOTの設定
-bot = commands.Bot(command_prefix=commands.when_mentioned_or("!"), intents=intents)
+command_prefix = os.getenv("COMMAND_PREFIX", "!")
+bot = commands.Bot(command_prefix=commands.when_mentioned_or(command_prefix), intents=intents)
 
 # 通知チャンネルID
-NOTIFICATION_CHANNEL_ID = 1355874242457112638
+NOTIFICATION_CHANNEL_ID = int(os.getenv("NOTIFICATION_CHANNEL_ID", 0))
 
 # シグナルハンドラの設定
 def signal_handler(sig, frame):
@@ -83,7 +84,7 @@ async def stop_bot(interaction: discord.Interaction):
 # Hypixel Worldリンク用コマンドを追加
 @bot.tree.command(name="hypixel_world", description="Hypixel Worldのリンクを表示します")
 async def hypixel_world(interaction: discord.Interaction):
-    hypixel_url = "https://drive.google.com/drive/folders/18w1Y27UJJc_MMS8Yy8tgAc6Sv71A0s6M"
+    hypixel_url = os.getenv("HYPIXEL_WORLD_URL", "https://drive.google.com/drive/folders/18w1Y27UJJc_MMS8Yy8tgAc6Sv71A0s6M")
     
     embed = discord.Embed(
         title="Hypixel World リンク",
@@ -111,11 +112,11 @@ async def setup_command(interaction: discord.Interaction):
     guild = interaction.guild
     
     # BOT操作ロールの作成
-    admin_role_name = "BOT操作"
+    admin_role_name = os.getenv("ADMIN_ROLE_NAME", "BOT操作")
     existing_admin_role = discord.utils.get(guild.roles, name=admin_role_name)
     
     # BOT!ロールの作成
-    bot_role_name = "BOT!"
+    bot_role_name = os.getenv("BOT_ROLE_NAME", "BOT!")
     existing_bot_role = discord.utils.get(guild.roles, name=bot_role_name)
     
     response = []

@@ -1,4 +1,9 @@
 import discord
+import os
+from dotenv import load_dotenv
+
+# .envファイルを読み込む
+load_dotenv()
 
 class GameRecruitment:
     recruitments = {}  # 募集を保存する辞書
@@ -18,7 +23,8 @@ class GameRecruitment:
         }
         
         # BOT!ロールがある場合は権限を追加
-        bot_role = discord.utils.get(guild.roles, name="BOT!")
+        bot_role_name = os.getenv("BOT_ROLE_NAME", "BOT!")
+        bot_role = discord.utils.get(guild.roles, name=bot_role_name)
         if bot_role:
             overwrites[bot_role] = discord.PermissionOverwrite(read_messages=True, send_messages=True, connect=True, speak=True)
         
@@ -267,7 +273,7 @@ class GameRecruitment:
             return False
             
         # ホストまたはBOT操作ロールを持っている場合は権限あり
-        has_admin_role = discord.utils.get(user.roles, name="BOT操作") is not None
+        has_admin_role = discord.utils.get(user.roles, name=os.getenv("ADMIN_ROLE_NAME", "BOT操作")) is not None
         is_host = user.id == recruitment["host"]
         
         return is_host or has_admin_role
