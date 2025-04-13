@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 import os
 import signal
 import sys
+import threading
+from flask import Flask, jsonify
 
 # インポート
 from commands.game_commands import GameCommands
@@ -122,6 +124,33 @@ async def on_member_join(member):
     # youkoso_commandsモジュールの処理を呼び出す
     from commands.youkoso_commands import handle_member_join_global
     await handle_member_join_global(member)
+
+# Flask アプリケーションの設定
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return jsonify({
+        "status": "online",
+        "message": "Discord bot is running"
+    })
+
+@app.route('/health')
+def health():
+    return jsonify({
+        "status": "healthy"
+    })
+
+# Flaskサーバーを別スレッドで実行する関数
+def run_flask_app():
+    # Renderが提供するPORTを使用するか、デフォルトで8080を使用
+    port = int(os.getenv("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
+
+# Flaskサーバーを別スレッドで起動
+flask_thread = threading.Thread(target=run_flask_app)
+flask_thread.daemon = True  # メインプログラムが終了したら一緒に終了
+flask_thread.start()
 
 # トークンを.envから取得してBOTを起動
 bot.run(os.getenv("DISCORD_BOT_TOKEN"))
