@@ -199,67 +199,35 @@ class YoukosoCommands(app_commands.Group):
         
         if status == "on":
             # 設定を保存
-            welcome_settings.set_channel(interaction.guild_id, channel.id)
-            welcome_settings.set_enabled(interaction.guild_id, True)
-            await interaction.response.send_message(f"ようこそメッセージを有効にしました。送信先チャンネル: {channel.mention}", ephemeral=True)
-            logger.info(f"サーバー {interaction.guild.name} でようこそメッセージを有効化しました。チャンネル: {channel.name}")
+            welcome_settings.set_enabled(interaction.guild.id, True)
+            welcome_settings.set_channel(interaction.guild.id, channel.id)
+            
+            # 成功メッセージを送信
+            await interaction.response.send_message(
+                f"ようこそメッセージを **オン** にしました。\n"
+                f"送信先チャンネル: {channel.mention}"
+            )
         else:  # status == "off"
-            # 設定を保存
-            welcome_settings.set_enabled(interaction.guild_id, False)
-            await interaction.response.send_message("ようこそメッセージを無効にしました。", ephemeral=True)
-            logger.info(f"サーバー {interaction.guild.name} でようこそメッセージを無効化しました")
+            # 設定を保存（チャンネルはそのまま保持）
+            welcome_settings.set_enabled(interaction.guild.id, False)
+            
+            # 成功メッセージを送信
+            await interaction.response.send_message("ようこそメッセージを **オフ** にしました。")
 
-    # テスト用コマンド - 実際のメッセージ送信をシミュレート
-    @app_commands.command(name="test", description="ようこそメッセージのテスト送信を行います")
-    @app_commands.default_permissions(administrator=True)
-    async def youkoso_test(self, interaction: discord.Interaction):
-        """ようこそメッセージのテスト送信を行います"""
-        guild_id = interaction.guild_id
-        
-        # 設定が有効かどうか確認
-        if not self.welcome_settings.is_enabled(guild_id):
-            await interaction.response.send_message("ようこそメッセージは現在無効になっています。\n`/youkoso setup status:on channel:#チャンネル名` で有効にしてください。", ephemeral=True)
-            return
-            
-        # チャンネルが設定されているか確認
-        channel_id = self.welcome_settings.get_channel_id(guild_id)
-        if not channel_id:
-            await interaction.response.send_message("ようこそメッセージの送信先チャンネルが設定されていません。\n`/youkoso setup status:on channel:#チャンネル名` で設定してください。", ephemeral=True)
-            return
-            
-        channel = interaction.guild.get_channel(channel_id)
-        if not channel:
-            await interaction.response.send_message("設定されたチャンネルが見つかりません。\n`/youkoso setup status:on channel:#チャンネル名` で再設定してください。", ephemeral=True)
-            return
-            
-        # ようこそメッセージをテスト送信
-        youtube_link = "https://www.youtube.com/channel/UCXn0LlFmWXr_rXBWPtD94vQ"
-        
-        # 新しい形式のEmbedを作成
-        embed = discord.Embed(
-            title="🎉 新メンバー参加",
-            description=f"{interaction.user.mention}さん、動画班鯖へようこそ！ そして、[ちゃびーチャンネル]({youtube_link})登録してるかな?(圧)",
-            color=discord.Color.green()
-        )
-        
-        await channel.send(embed=embed)
-        await interaction.response.send_message(f"テスト用のようこそメッセージを {channel.mention} に送信しました！", ephemeral=True)
-        logger.info(f"テスト用ようこそメッセージが {interaction.user.name} によって送信されました")
-
-# コマンドの登録
 def setup_youkoso_commands(bot):
+    """ようこそコマンドをbotに登録する関数"""
     global youkoso_instance
-    youkoso_instance = YoukosoCommands()
-    bot.tree.add_command(youkoso_instance)
-    logger.info("ようこそコマンドが登録されました")
     
-    # メンバー参加イベントのハンドラを登録
+    # YoukosoCommandsのインスタンスを作成
+    youkoso_group = YoukosoCommands()
+    youkoso_instance = youkoso_group
+    
+    # コマンドをbotに追加
+    bot.tree.add_command(youkoso_group)
+    
+    # メンバー参加イベントハンドラを設定
     @bot.event
     async def on_member_join(member):
-        try:
-            logger.info(f"youkoso_command内のon_member_joinが呼び出されました: {member.name}")
-            await send_welcome_message(member, youkoso_instance.welcome_settings)
-        except Exception as e:
-            logger.error(f"メンバー参加イベント処理中にエラーが発生しました: {e}")
-            import traceback
-            traceback.print_exc()
+        await youkoso_instance.handle_member_join(member)
+    
+    logger.info("ようこそコマンドを登録しました")

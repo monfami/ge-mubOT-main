@@ -116,5 +116,7 @@ class NinnsyouCommands(app_commands.Group):
         await interaction.response.send_message(f"{channel.mention} に認証パネルを作成しました！", ephemeral=True)
 
 def setup_ninnsyou_commands(bot):
+    """認証コマンドをbotに登録する関数"""
     ninnsyou_group = NinnsyouCommands()
     bot.tree.add_command(ninnsyou_group)
+    print("認証コマンドを登録しました")

@@ -10,10 +10,9 @@ import sys
 from commands.game_commands import GameCommands
 from commands.aiueo_commands import AiueoCommands, AiueoManager, handle_message
 from commands.satuei import SatueiCommands
-from game_recruitment import GameRecruitment
-from youkoso_command import setup_youkoso_commands  # ようこそコマンドをインポート
-from yakudati_command import setup_yakudati_commands  # 役立ちメンバーコマンドをインポート
-from gas_integration import AuthSystem, AuthView  # 認証システムをインポート
+from commands.youkoso_commands import setup_youkoso_commands  # ようこそコマンドをインポート
+from commands.yakudati_commands import setup_yakudati_commands  # 役立ちメンバーコマンドをインポート
+from commands.gas_integration import AuthSystem, AuthView  # 認証システムをインポート
 
 # .envファイルを読み込む
 load_dotenv()
@@ -215,8 +214,8 @@ async def on_member_join(member):
     print(f"参加時刻: {member.joined_at}")
     print(f"======================================\n")
     
-    # youkoso_commandモジュールの処理を呼び出す
-    from youkoso_command import handle_member_join_global
+    # youkoso_commandsモジュールの処理を呼び出す
+    from commands.youkoso_commands import handle_member_join_global
     await handle_member_join_global(member)
 
 # トークンを.envから取得してBOTを起動
