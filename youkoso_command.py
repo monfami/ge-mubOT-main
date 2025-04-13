@@ -6,6 +6,10 @@ import os
 import logging
 import sys
 import datetime
+from dotenv import load_dotenv
+
+# .envファイルを読み込む
+load_dotenv()
 
 # デバッグのためのロガーを設定
 logger = logging.getLogger('youkoso')
@@ -17,8 +21,14 @@ console_handler.setLevel(logging.INFO)  # INFO以上のレベルをコンソー�
 console_format = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 console_handler.setFormatter(console_format)
 
+# ログディレクトリの確認と作成
+log_directory = os.getenv("LOG_DIRECTORY", "logs")
+if not os.path.exists(log_directory):
+    os.makedirs(log_directory)
+
 # ファイル出力用のハンドラ
-file_handler = logging.FileHandler('youkoso.log', encoding='utf-8')
+youkoso_log_path = os.getenv("YOUKOSO_LOG_PATH", os.path.join(log_directory, "youkoso.log"))
+file_handler = logging.FileHandler(youkoso_log_path, encoding='utf-8')
 file_handler.setLevel(logging.DEBUG)
 file_format = logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s')
 file_handler.setFormatter(file_format)
@@ -36,7 +46,8 @@ if logger.handlers:
 # ようこそ機能の設定を管理するクラス
 class WelcomeSettings:
     def __init__(self):
-        self.config_file = 'welcome_config.json'
+        log_directory = os.getenv("LOG_DIRECTORY", "logs")
+        self.config_file = os.getenv("WELCOME_CONFIG_PATH", os.path.join(log_directory, "welcome_config.json"))
         self.settings = self._load_settings()
     
     def _load_settings(self):

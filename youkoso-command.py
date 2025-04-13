@@ -7,7 +7,8 @@ import os
 # ようこそ機能の設定を管理するクラス
 class WelcomeSettings:
     def __init__(self):
-        self.config_file = 'welcome_config.json'
+        log_directory = os.getenv("LOG_DIRECTORY", "logs")
+        self.config_file = os.getenv("WELCOME_CONFIG_PATH", os.path.join(log_directory, "welcome_config.json"))
         self.settings = self._load_settings()
     
     def _load_settings(self):
